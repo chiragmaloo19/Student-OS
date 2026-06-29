@@ -43,6 +43,13 @@ const TABS = [
   { id: 'completed', label: 'Completed' },
 ]
 
+// Helper to get local today date string (same pattern used in filtering)
+function getLocalTodayStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+const localTodayDate = getLocalTodayStr()
+
 export default function Tasks() {
   const { user }      = useAuth()
   const { showToast } = useToast()
@@ -55,6 +62,48 @@ export default function Tasks() {
   const [isFormOpen,       setIsFormOpen]       = useState(false)
   const [editingTask,      setEditingTask]      = useState(null)
   const [formLoading,      setFormLoading]      = useState(false)
+  const [filterDate,       setFilterDate]       = useState(localTodayDate)
+
+  /* Form State */
+  const [formTitle,       setFormTitle]       = useState('')
+  const [formDescription, setFormDescription] = useState('')
+  const [formDueDate,     setFormDueDate]     = useState(localTodayDate)
+  const [formPriority,    setFormPriority]    = useState('low')
+  const [formCategory,    setFormCategory]    = useState('general')
+  const [formErrors,      setFormErrors]      = useState({})
+
+  const handleOpenAdd = () => {
+    setFormTitle('')
+    setFormDescription('')
+    setFormDueDate(localTodayDate)
+    setFormPriority('low')
+    setFormCategory('general')
+    setFormErrors({})
+    setEditingTask(null)
+    setIsFormOpen(true)
+  }
+
+  const handleOpenEdit = (t) => {
+    setEditingTask(t)
+    setFormTitle(t.title || '')
+    setFormDescription(t.description || '')
+    setFormDueDate(t.due_date || localTodayDate)
+    setFormPriority(t.priority || 'low')
+    setFormCategory(t.category || 'general')
+    setFormErrors({})
+    setIsFormOpen(true)
+  }
+
+  const handleFormCancel = () => {
+    setFormTitle('')
+    setFormDescription('')
+    setFormDueDate(localTodayDate)
+    setFormPriority('low')
+    setFormCategory('general')
+    setFormErrors({})
+    setEditingTask(null)
+    setIsFormOpen(false)
+  }
 
   /* daily-banner state — only triggered by user action, never on load */
   const [showDailyBanner,  setShowDailyBanner]  = useState(false)
@@ -65,7 +114,6 @@ export default function Tasks() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   }
-  const localTodayDate = getLocalToday()
 
   /* ── fetch ───────────────────────────────────────────────────── */
   const fetchTasks = async () => {
@@ -90,8 +138,8 @@ export default function Tasks() {
 
   /* ── filter ──────────────────────────────────────────────────── */
   const filteredTasks = tasks.filter((task) => {
-    if (activeTab === 'today'     && task.due_date !== localTodayDate) return false
-    if (activeTab === 'completed' && !task.is_completed)               return false
+    if (activeTab === 'today'     && task.due_date !== filterDate)        return false
+    if (activeTab === 'completed' && !task.is_completed)                 return false
     if (selectedCategory !== 'all' && task.category !== selectedCategory) return false
     if (selectedPriority !== 'all' && task.priority  !== selectedPriority) return false
     return true
@@ -125,6 +173,12 @@ export default function Tasks() {
         setTasks(prev => [data[0], ...prev])
         showToast('Task created successfully', 'success')
       }
+      setFormTitle('')
+      setFormDescription('')
+      setFormDueDate(localTodayDate)
+      setFormPriority('low')
+      setFormCategory('general')
+      setFormErrors({})
       setIsFormOpen(false)
       setEditingTask(null)
     } catch (err) {
@@ -182,7 +236,7 @@ export default function Tasks() {
           <Button
             variant="primary"
             icon={<Plus className="w-4 h-4" />}
-            onClick={() => { setEditingTask(null); setIsFormOpen(true) }}
+            onClick={handleOpenAdd}
             className="rounded-xl ml-auto"
           >
             Add Task
@@ -209,26 +263,64 @@ export default function Tasks() {
         </AnimatePresence>
 
         {/* ── Tabs ─────────────────────────────────────────────── */}
-        <div className="border-b border-surface-800 flex gap-6 relative">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-semibold relative transition-colors ${
-                activeTab === tab.id ? 'text-brand-400' : 'text-surface-400 hover:text-surface-200'
-              }`}
-            >
-              {tab.label}
-              {activeTab === tab.id && (
-                <motion.div
-                  layoutId="activeTabIndicator"
-                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-500 rounded-full shadow-glow"
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                />
-              )}
-            </button>
-          ))}
+        <div className="border-b border-surface-800 flex gap-4 sm:gap-6 relative overflow-x-auto scrollbar-none">
+          {TABS.map((tab) => {
+            const count =
+              tab.id === 'today'
+                ? tasks.filter(t => t.due_date === filterDate && !t.is_completed).length
+                : tab.id === 'completed'
+                ? tasks.filter(t => t.is_completed).length
+                : tasks.filter(t => !t.is_completed).length
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`pb-3 text-sm font-semibold relative transition-colors flex items-center gap-1.5 ${
+                  activeTab === tab.id ? 'text-brand-400' : 'text-surface-400 hover:text-surface-200'
+                }`}
+              >
+                {tab.label}
+                {!loading && count > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    activeTab === tab.id
+                      ? 'bg-brand-500/20 text-brand-300'
+                      : 'bg-surface-800 text-surface-500'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="activeTabIndicator"
+                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-500 rounded-full shadow-glow"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+            )
+          })}
         </div>
+
+        {/* ── Date picker for Today tab ─────────────────────── */}
+        {activeTab === 'today' && (
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-semibold text-surface-400">Showing tasks for:</label>
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="bg-surface-950 border border-surface-800 rounded-xl text-surface-300 py-1.5 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all duration-200"
+            />
+            {filterDate !== localTodayDate && (
+              <button
+                onClick={() => setFilterDate(localTodayDate)}
+                className="text-xs text-brand-400 hover:text-brand-300 transition-colors font-semibold"
+              >
+                Back to Today
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Filters */}
         <TaskFilters
@@ -255,7 +347,7 @@ export default function Tasks() {
                   key={task.id}
                   task={task}
                   onToggle={handleToggleComplete}
-                  onEdit={(t) => { setEditingTask(t); setIsFormOpen(true) }}
+                  onEdit={handleOpenEdit}
                   onDelete={handleDeleteTask}
                 />
               ))}
@@ -285,7 +377,7 @@ export default function Tasks() {
                 ? "No completed tasks yet. Check one off to see it here!"
                 : "No tasks match your filters. Create a new task or adjust your filters."}
             </p>
-            <Button variant="primary" onClick={() => { setEditingTask(null); setIsFormOpen(true) }} className="rounded-xl">
+            <Button variant="primary" onClick={handleOpenAdd} className="rounded-xl">
               Add First Task
             </Button>
           </motion.div>
@@ -294,10 +386,17 @@ export default function Tasks() {
         {/* Form drawer */}
         <TaskForm
           isOpen={isFormOpen}
-          onClose={() => { setIsFormOpen(false); setEditingTask(null) }}
+          onClose={() => setIsFormOpen(false)}
+          onCancel={handleFormCancel}
           onSubmit={handleFormSubmit}
           task={editingTask}
           loading={formLoading}
+          title={formTitle} setTitle={setFormTitle}
+          description={formDescription} setDescription={setFormDescription}
+          dueDate={formDueDate} setDueDate={setFormDueDate}
+          priority={formPriority} setPriority={setFormPriority}
+          category={formCategory} setCategory={setFormCategory}
+          errors={formErrors} setErrors={setFormErrors}
         />
       </div>
     </PageLayout>

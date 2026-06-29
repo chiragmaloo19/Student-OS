@@ -11,7 +11,7 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
-  const { user, role, loading: authLoading, signIn, signInWithGoogle } = useAuth()
+  const { user, role, loading: authLoading, signIn, signInWithGoogle, authError } = useAuth()
   const navigate = useNavigate()
 
   // Redirect if already logged in and role is known
@@ -20,6 +20,13 @@ export function Login() {
       navigate(role === 'admin' ? '/admin' : '/dashboard', { replace: true })
     }
   }, [user, role, authLoading, navigate])
+
+  // Monitor AuthContext global errors (like oauth missing account blocks)
+  useEffect(() => {
+    if (authError) {
+      setError(authError)
+    }
+  }, [authError])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

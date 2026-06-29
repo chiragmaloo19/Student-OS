@@ -117,6 +117,57 @@ export default function Placements() {
   const [selectedPlacementForNotes,  setSelectedPlacementForNotes]  = useState(null)
   const [isNotesOpen,                setIsNotesOpen]                = useState(false)
 
+  /* Form State */
+  const getLocalTodayDate = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  }
+  const [formCompanyName,    setFormCompanyName]    = useState('')
+  const [formRoleTitle,      setFormRoleTitle]      = useState('')
+  const [formStatus,         setFormStatus]         = useState('applied')
+  const [formAppliedDate,    setFormAppliedDate]    = useState(getLocalTodayDate())
+  const [formSalaryOffered,  setFormSalaryOffered]  = useState('')
+  const [formNotes,          setFormNotes]          = useState('')
+  const [formErrors,         setFormErrors]         = useState({})
+
+  const handleOpenAdd = () => {
+    if (editingPlacement !== null) {
+      setFormCompanyName('')
+      setFormRoleTitle('')
+      setFormStatus('applied')
+      setFormAppliedDate(getLocalTodayDate())
+      setFormSalaryOffered('')
+      setFormNotes('')
+      setFormErrors({})
+      setEditingPlacement(null)
+    }
+    setIsFormOpen(true)
+  }
+
+  const handleOpenEdit = (p) => {
+    setEditingPlacement(p)
+    setFormCompanyName(p.company_name || '')
+    setFormRoleTitle(p.role_title || '')
+    setFormStatus(p.status || 'applied')
+    setFormAppliedDate(p.applied_date || getLocalTodayDate())
+    setFormSalaryOffered(p.salary_offered !== null && p.salary_offered !== undefined ? p.salary_offered.toString() : '')
+    setFormNotes(p.notes || '')
+    setFormErrors({})
+    setIsFormOpen(true)
+  }
+
+  const handleFormCancel = () => {
+    setFormCompanyName('')
+    setFormRoleTitle('')
+    setFormStatus('applied')
+    setFormAppliedDate(getLocalTodayDate())
+    setFormSalaryOffered('')
+    setFormNotes('')
+    setFormErrors({})
+    setEditingPlacement(null)
+    setIsFormOpen(false)
+  }
+
   /* Offer celebration — only triggered by status change, not on load */
   const [showOfferCelebration, setShowOfferCelebration] = useState(false)
 
@@ -168,6 +219,13 @@ export default function Placements() {
         if (formData.status === 'offer') triggerOfferCelebration()
         showToast('Application added successfully', 'success')
       }
+      setFormCompanyName('')
+      setFormRoleTitle('')
+      setFormStatus('applied')
+      setFormAppliedDate(getLocalTodayDate())
+      setFormSalaryOffered('')
+      setFormNotes('')
+      setFormErrors({})
       setIsFormOpen(false)
       setEditingPlacement(null)
     } catch (err) {
@@ -229,7 +287,7 @@ export default function Placements() {
             <Button
               variant="primary"
               icon={<Plus className="w-4 h-4" />}
-              onClick={() => { setEditingPlacement(null); setIsFormOpen(true) }}
+              onClick={handleOpenAdd}
               className="rounded-xl ml-auto"
             >
               Add Application
@@ -250,7 +308,7 @@ export default function Placements() {
             ) : placements.length > 0 ? (
               <PlacementTable
                 placements={placements}
-                onEdit={(p) => { setEditingPlacement(p); setIsFormOpen(true) }}
+                onEdit={handleOpenEdit}
                 onViewNotes={(p) => { setSelectedPlacementForNotes(p); setIsNotesOpen(true) }}
                 onDelete={handleDeletePlacement}
                 onStatusChange={handleStatusChange}
@@ -275,7 +333,7 @@ export default function Placements() {
                 </p>
                 <Button
                   variant="primary"
-                  onClick={() => { setEditingPlacement(null); setIsFormOpen(true) }}
+                  onClick={handleOpenAdd}
                   className="rounded-xl"
                 >
                   Add First Application
@@ -287,10 +345,18 @@ export default function Placements() {
           {/* Drawers */}
           <PlacementForm
             isOpen={isFormOpen}
-            onClose={() => { setIsFormOpen(false); setEditingPlacement(null) }}
+            onClose={() => setIsFormOpen(false)}
+            onCancel={handleFormCancel}
             onSubmit={handleFormSubmit}
             placement={editingPlacement}
             loading={formLoading}
+            companyName={formCompanyName} setCompanyName={setFormCompanyName}
+            roleTitle={formRoleTitle} setRoleTitle={setFormRoleTitle}
+            status={formStatus} setStatus={setFormStatus}
+            appliedDate={formAppliedDate} setAppliedDate={setFormAppliedDate}
+            salaryOffered={formSalaryOffered} setSalaryOffered={setFormSalaryOffered}
+            notes={formNotes} setNotes={setFormNotes}
+            errors={formErrors} setErrors={setFormErrors}
           />
           <PlacementNotesPanel
             isOpen={isNotesOpen}
